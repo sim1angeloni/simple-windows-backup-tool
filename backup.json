@@ -1,0 +1,15 @@
+{
+    "backup_directory": "D:\\backup",
+    "home_directory": "C:\\Users",
+    "source_directories": [
+        "%HOME%\\Documents",
+        "C:\\Path\\To\\Other\\Directory",
+        "E:\\Path\\To\\Directory\\In\\Another\\Drive"
+    ],
+    "source_files": [
+        "%HOME%\\.gitconfig"
+    ],
+    "debug": true,
+    "dryrun": true,
+    "notification": false
+}
