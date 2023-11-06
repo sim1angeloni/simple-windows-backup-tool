@@ -3,6 +3,8 @@ import os
 import json
 import sys
 import logging
+import argparse
+import time
 
 
 SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -153,7 +155,8 @@ class Backup:
         if self.dryrun:
             robocopy_command.append("/L")   # Specifies that files are to be listed only (and not copied, deleted, or time stamped).
 
-        process = subprocess.Popen(robocopy_command, stdout=subprocess.PIPE, universal_newlines=True)
+        CREATE_NO_WINDOW = 0x08000000
+        process = subprocess.Popen(robocopy_command, stdout=subprocess.PIPE, universal_newlines=True, creationflags=CREATE_NO_WINDOW)
         for line in iter(process.stdout.readline, ""):
             log.debug(line.strip())
         process.stdout.close()
