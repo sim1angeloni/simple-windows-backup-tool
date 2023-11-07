@@ -5,10 +5,11 @@ import sys
 import logging
 
 
-SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
+# Configuration
 LOGGER_NAME = "backuplog"
 LOGGER_FILE = "backup.log"
 CONFIGURATION_FILE = "backup.json"
+NOTIFICATION_ICON_FILE = "backup.ico"
 HOME_DIRECTORY_MARKER = "%HOME%"
 log = logging.getLogger(LOGGER_NAME)
 
@@ -59,11 +60,19 @@ class Utilities:
 
 
 class Backup:
-    def __init__(self) -> None:
+    def __init__(self, configuration_path:str, log_path:str, resources_path:str = "") -> None:
         """
         Initialize the Backup object and configure logging & backup settings.
+
+        Args:
+            configuration_path (str): The directory that contains the configuration file.
+            log_path (str): The directory where the log file will be written.
+            resources_path (str): The directory that contains the ico file.
         """
 
+        self.configuration_path = configuration_path
+        self.log_path = log_path
+        self.resources_path = resources_path
         self._configure_logging(console_log=True, file_log=True)
 
         self.username = Utilities.get_env("USERNAME")       
@@ -86,7 +95,7 @@ class Backup:
         Read configuration settings from a JSON file and set class attributes.
         """
 
-        config_file_path = os.path.join(SCRIPT_PATH, CONFIGURATION_FILE)
+        config_file_path = os.path.join(self.configuration_path, CONFIGURATION_FILE)
         log.info(f"Reading configuration file {config_file_path}...")
         with open(config_file_path, 'r') as config_file:
             config = json.load(config_file)
@@ -168,7 +177,7 @@ class Backup:
         return True
 
 
-    def backup(self):
+    def backup(self) -> bool:
         """
         Perform the backup of source directories and files to the destination directory.
 
@@ -214,7 +223,7 @@ class Backup:
     def _notify(self, message):
         if self.notification:
             from notification import WindowsBalloonTip
-            w=WindowsBalloonTip(message, "Backup", os.path.join(SCRIPT_PATH, "backup.ico"), duration=5)
+            w=WindowsBalloonTip(message, "Backup", os.path.join(self.resources_path, NOTIFICATION_ICON_FILE), duration=5)
 
 
     def _configure_logging(self, console_log:bool, file_log:bool):
@@ -236,14 +245,15 @@ class Backup:
             log.addHandler(console_handler)
 
         if file_log:
-            file_handler = logging.FileHandler(os.path.join(SCRIPT_PATH, LOGGER_FILE), mode='w')
+            file_handler = logging.FileHandler(os.path.join(self.log_path, LOGGER_FILE), mode='w')
             file_handler.setFormatter(formatter)
             log.addHandler(file_handler)
 
 
 if __name__ == "__main__":  
     try:
-        bck = Backup()
+        script_path = os.path.dirname(os.path.abspath(__file__))
+        bck = Backup(script_path, script_path, script_path)
         sys.exit(0 if bck.backup() else 1)
     except Exception as e:
         log.error(f"exception: {e}")

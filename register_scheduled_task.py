@@ -1,7 +1,7 @@
 import os
 import subprocess
 import venv
-import xml.etree.ElementTree as ET
+
 
 # Configuration
 VENV_NAME = "venv"
@@ -11,8 +11,8 @@ BACKUP_FILE = "backup.py"
 SCHEDULED_TASK_CONFIG = "scheduled_task_config.xml"
 SCHEDULED_TASK_CONFIG_OUT = "scheduled_task_config_generated.xml"
 
-if __name__ == "__main__":  
-    script_path = os.path.dirname(os.path.abspath(__file__))
+
+def register_scheduled_task(script_path:str) -> None:
     venv_path = os.path.join(script_path, VENV_NAME)
     requirements_path = os.path.join(script_path, "requirements.txt")
 
@@ -45,3 +45,7 @@ if __name__ == "__main__":
     ]
 
     subprocess.run(task_command, check=True)
+
+
+if __name__ == "__main__":
+    register_scheduled_task(os.path.dirname(os.path.abspath(__file__)))
