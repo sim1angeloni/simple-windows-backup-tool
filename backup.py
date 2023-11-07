@@ -3,8 +3,6 @@ import os
 import json
 import sys
 import logging
-import argparse
-import time
 
 
 SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -215,7 +213,7 @@ class Backup:
 
     def _notify(self, message):
         if self.notification:
-            from baloontip import WindowsBalloonTip
+            from notification import WindowsBalloonTip
             w=WindowsBalloonTip(message, "Backup", os.path.join(SCRIPT_PATH, "backup.ico"), duration=5)
 
 
