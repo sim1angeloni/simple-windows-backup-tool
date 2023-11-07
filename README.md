@@ -110,7 +110,7 @@ Execute the following script to create and register the scheduled task:
 This script configure the task and install it, specifically:
 1. Create a Python virtual environment under the same `simple-windows-backup-tool` directory.
 2. Configure the virtual environment with the necessary dependencies. See `requirements.txt`.
-3. Configure the Scheduled Task reading & modifying the provided XML file `scheduled_task_config.xml`.
+3. Configure the Scheduled Task reading & modifying the XML file `scheduled_task_config.xml` provided with the build.
 4. Install the task `ScheduledBackup`.
 
 After the task is installed you can configure it further:
@@ -142,4 +142,4 @@ You can [Report a bug](https://github.com/sim1angeloni/simple-windows-backup-too
 
 ## License
 
-This project is licensed under the MIT - see the [LICENSE](https://github.com/sim1angeloni/simple-windows-backup-tool/blob/main/LICENSE) file for details.
+This project is licensed under the MIT - see the [LICENSE](https://github.com/sim1angeloni/simple-windows-backup-tool/blob/master/LICENSE) file for details.
