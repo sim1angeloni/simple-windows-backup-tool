@@ -11,7 +11,6 @@ LOGGER_FILE = "backup.log"
 CONFIGURATION_FILE = "backup.json"
 NOTIFICATION_ICON_FILE = "backup.ico"
 HOME_DIRECTORY_MARKER = "%HOME%"
-log = logging.getLogger(LOGGER_NAME)
 
 
 class Utilities:
@@ -55,7 +54,6 @@ class Utilities:
         if os.path.isabs(path):
             return path.replace(":", "")
         else:
-            log.error(f"Input path {path} is not an absolute path")
             return None
 
 
@@ -73,21 +71,21 @@ class Backup:
         self.configuration_path = configuration_path
         self.log_path = log_path
         self.resources_path = resources_path
-        self._configure_logging(console_log=True, file_log=True)
+        self.log = self._configure_logging(console_log=True, file_log=True)
 
         self.username = Utilities.get_env("USERNAME")       
-        log.info(f"Username: {self.username}")
+        self.log.info(f"Username: {self.username}")
 
         self.computername = Utilities.get_env("COMPUTERNAME")
-        log.info(f"Computer name: {self.computername}")
+        self.log.info(f"Computer name: {self.computername}")
 
         self._configure_backup_script_from_file()
-        log.setLevel(logging.DEBUG if self.debug else logging.INFO)
-        log.info(f"Script configuration: debug={self.debug}, dryrun={self.dryrun}")
+        self.log.setLevel(logging.DEBUG if self.debug else logging.INFO)
+        self.log.info(f"Script configuration: debug={self.debug}, dryrun={self.dryrun}")
 
         self.backup_directory_full = os.path.join(self.backup_directory, self.username, self.computername)
-        log.info(f"Backup root: {self.backup_directory}")
-        log.info(f"Backup directory: {self.backup_directory_full}")
+        self.log.info(f"Backup root: {self.backup_directory}")
+        self.log.info(f"Backup directory: {self.backup_directory_full}")
 
 
     def _configure_backup_script_from_file(self) -> None:
@@ -96,7 +94,7 @@ class Backup:
         """
 
         config_file_path = os.path.join(self.configuration_path, CONFIGURATION_FILE)
-        log.info(f"Reading configuration file {config_file_path}...")
+        self.log.info(f"Reading configuration file {config_file_path}...")
         with open(config_file_path, 'r') as config_file:
             config = json.load(config_file)
 
@@ -106,11 +104,11 @@ class Backup:
             
         self.source_directories = config.get("source_directories", [])
         self.source_directories = [os.path.normpath(path.replace(HOME_DIRECTORY_MARKER, os.path.join(home_directory, self.username))) for path in self.source_directories]
-        log.info(f"Found {len(self.source_directories)} directories to backup")
+        self.log.info(f"Found {len(self.source_directories)} directories to backup")
 
         self.source_files = config.get("source_files", [])
         self.source_files = [os.path.normpath(path.replace(HOME_DIRECTORY_MARKER, os.path.join(home_directory, self.username))) for path in self.source_files]
-        log.info(f"Found {len(self.source_files)} files to backup")
+        self.log.info(f"Found {len(self.source_files)} files to backup")
 
         self.backup_directory = config.get("backup_directory", None)
         if self.backup_directory is None:
@@ -137,7 +135,7 @@ class Backup:
         """
 
         source_object = os.path.join(source_dir, filename) if filename else source_dir
-        log.info(f"Starting backup of {source_object} in {destination_dir}...")
+        self.log.info(f"Starting backup of {source_object} in {destination_dir}...")
 
         robocopy_command = [
             "robocopy",
@@ -165,15 +163,15 @@ class Backup:
         CREATE_NO_WINDOW = 0x08000000
         process = subprocess.Popen(robocopy_command, stdout=subprocess.PIPE, universal_newlines=True, creationflags=CREATE_NO_WINDOW)
         for line in iter(process.stdout.readline, ""):
-            log.debug(line.strip())
+            self.log.debug(line.strip())
         process.stdout.close()
 
         process.wait()
         if process.returncode >= 8:
-            log.error(f"Backup of {source_object} failed")
+            self.log.error(f"Backup of {source_object} failed")
             return False
         
-        log.info(f"Backup of {source_object} completed successfully")
+        self.log.info(f"Backup of {source_object} completed successfully")
         return True
 
 
@@ -190,6 +188,7 @@ class Backup:
         for source_dir in self.source_directories:
             source_path = Utilities.convert_to_directory_path(source_dir)
             if not source_path:
+                self.log.error(f"Input path {source_path} is not an absolute path")
                 continue
 
             destination_dir = os.path.join(self.backup_directory_full, source_path)
@@ -202,6 +201,7 @@ class Backup:
             source_dir, filename = os.path.split(source_file)
             source_path = Utilities.convert_to_directory_path(source_dir)
             if not source_path:
+                self.log.error(f"Input path {source_path} is not an absolute path")
                 continue
 
             destination_dir = os.path.join(self.backup_directory_full, source_path)
@@ -210,12 +210,12 @@ class Backup:
         
         if successfull_directories != len(self.source_directories) or successfull_files != len(self.source_files):
             message = f"Errors during the backup procedure. {successfull_directories}/{total_directories} successfull directories. {successfull_files}/{total_files} successfull files"
-            log.error(message)
+            self.log.error(message)
             self._notify(message)
             return False
         
         message = "Backup of all directories and files completed successfully"
-        log.info(message)
+        self.log.info(message)
         self._notify(message)
         return True
     
@@ -249,6 +249,8 @@ class Backup:
             file_handler.setFormatter(formatter)
             log.addHandler(file_handler)
 
+        return log
+
 
 if __name__ == "__main__":  
     try:
@@ -256,5 +258,5 @@ if __name__ == "__main__":
         bck = Backup(script_path, script_path, script_path)
         sys.exit(0 if bck.backup() else 1)
     except Exception as e:
-        log.error(f"exception: {e}")
+        print(f"exception: {e}")
         sys.exit(1)
