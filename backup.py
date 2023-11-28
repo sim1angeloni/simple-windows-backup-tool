@@ -3,14 +3,45 @@ import os
 import json
 import sys
 import logging
+import shutil
+from datetime import datetime
 
 
 # Configuration
 LOGGER_NAME = "backuplog"
 LOGGER_FILE = "backup.log"
 CONFIGURATION_FILE = "backup.json"
+ROTATION_FILE = "rotation.json"
 NOTIFICATION_ICON_FILE = "backup.ico"
 HOME_DIRECTORY_MARKER = "%HOME%"
+
+
+class RotationFile:
+    def __init__(self, file_path:str) -> None:
+        self.file_path = file_path
+        self.date = 0
+        self.backups_list = []
+
+
+    def exists(self) -> bool:
+        return os.path.exists(self.file_path)
+
+
+    def save(self) -> None:
+        data = {
+            "date": self.date,
+            "list": self.backups_list
+        }
+
+        with open(self.file_path, "w") as f:
+            json.dump(data, f, ensure_ascii=True, indent=4)
+
+
+    def load(self) -> None:
+        with open(self.file_path, "r") as f:
+            content = json.load(f)
+            self.date = content["date"]
+            self.backups_list = content["list"]
 
 
 class Utilities:
@@ -83,6 +114,7 @@ class Backup:
         self.log.setLevel(logging.DEBUG if self.debug else logging.INFO)
         self.log.info(f"Script configuration: debug={self.debug}, dryrun={self.dryrun}")
 
+        self.backup_directory = os.path.normpath(os.path.join(self.backup_root, self.backup_name))
         self.backup_directory_full = os.path.join(self.backup_directory, self.username, self.computername)
         self.log.info(f"Backup root: {self.backup_directory}")
         self.log.info(f"Backup directory: {self.backup_directory_full}")
@@ -110,11 +142,21 @@ class Backup:
         self.source_files = [os.path.normpath(path.replace(HOME_DIRECTORY_MARKER, os.path.join(home_directory, self.username))) for path in self.source_files]
         self.log.info(f"Found {len(self.source_files)} files to backup")
 
-        self.backup_directory = config.get("backup_directory", None)
-        if self.backup_directory is None:
-            raise ValueError("Backup directory not found in the configuration file")
-
-        self.backup_directory = os.path.normpath(self.backup_directory)
+        self.backup_root = config.get("backup_root", None)
+        if self.backup_root is None:
+            raise ValueError("Backup root directory not found in the configuration file")
+        
+        self.backup_name = config.get("backup_name", None)
+        if self.backup_name is None:
+            raise ValueError("Backup name not found in the configuration file")
+        
+        rotation = config.get("rotation", {})
+        self.rotation_enabled = rotation.get("enabled", False)
+        self.rotation_interval = rotation.get("interval", 30)
+        self.rotation_interval = max(self.rotation_interval, 1)
+        self.rotation_max_saved = rotation.get("max_saved", 5)
+        self.rotation_max_saved = max(self.rotation_max_saved, 1)
+        
         self.debug = config.get("debug", False)
         self.dryrun = config.get("dryrun", True)
         self.notification = config.get("notification", False)
@@ -175,6 +217,49 @@ class Backup:
         return True
 
 
+    def _rotate(self) -> None:
+        if not self.rotation_enabled or self.dryrun:
+            return
+        
+        now_time_epoch = int(datetime.utcnow().replace(second=0, microsecond=0).timestamp())
+
+        self.rotation_file_path = os.path.join(self.backup_directory, ROTATION_FILE)
+        rotation_file = RotationFile(self.rotation_file_path)
+        if not rotation_file.exists():
+            rotation_file.date = now_time_epoch
+            rotation_file.save()
+            return
+        
+        rotation_file.load()
+
+        saved_time_epoch = rotation_file.date
+        saved_datetime = datetime.utcfromtimestamp(saved_time_epoch)
+        current_datetime = datetime.utcfromtimestamp(now_time_epoch)
+
+        days_elapsed = (current_datetime - saved_datetime).days
+        if days_elapsed < self.rotation_interval:
+            rotation_file.date = now_time_epoch
+            rotation_file.save()
+            return
+        
+        backups = sorted(rotation_file.backups_list)
+        try:
+            while len(backups) >= self.rotation_max_saved:
+                oldest_backup_name = backups.pop(0)
+                oldest_backup_path = os.path.join(self.backup_root, oldest_backup_name)
+                if os.path.exists(oldest_backup_path):
+                    shutil.rmtree(oldest_backup_path, ignore_errors=True)
+            
+            newest_backup_name = f"{self.backup_name}_{now_time_epoch}"
+            newest_backup_path = os.path.join(self.backup_directory, newest_backup_name)
+            os.system(f'move /Y "{self.backup_directory}" "{newest_backup_path}"')
+            backups.append(newest_backup_name)
+        finally:
+            rotation_file.date = now_time_epoch
+            rotation_file.backups_list = backups
+            rotation_file.save()
+
+
     def backup(self) -> bool:
         """
         Perform the backup of source directories and files to the destination directory.
@@ -182,6 +267,8 @@ class Backup:
         Returns:
             bool: True if the backup completed successfully, False otherwise.
         """
+
+        self._rotate()
 
         total_directories = len(self.source_directories)
         successfull_directories = 0 

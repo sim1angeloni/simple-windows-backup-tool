@@ -9,6 +9,11 @@
     "source_files": [
         "%HOME%\\.gitconfig"
     ],
+    "rotation": {
+        "enabled": false,
+        "interval": 30,
+        "max_saved": 5
+    },
     "debug": true,
     "dryrun": true,
     "notification": false
