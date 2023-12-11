@@ -6,6 +6,10 @@
         "C:\\Path\\To\\Other\\Directory",
         "E:\\Path\\To\\Directory\\In\\Another\\Drive"
     ],
+	"exclude_directories": [
+		"%HOME%\\Documents\\do-not-backup"
+	],
+	"exclude_files": [],
     "source_files": [
         "%HOME%\\.gitconfig"
     ],

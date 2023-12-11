@@ -138,6 +138,14 @@ class Backup:
         self.source_directories = [os.path.normpath(path.replace(HOME_DIRECTORY_MARKER, os.path.join(home_directory, self.username))) for path in self.source_directories]
         self.log.info(f"Found {len(self.source_directories)} directories to backup")
 
+        self.exclude_directories = config.get("exclude_directories", [])
+        self.exclude_directories = [os.path.normpath(path.replace(HOME_DIRECTORY_MARKER, os.path.join(home_directory, self.username))) for path in self.exclude_directories]
+        self.log.info(f"Found {len(self.exclude_directories)} directories to exclude")
+
+        self.exclude_files = config.get("exclude_files", [])
+        self.exclude_files = [os.path.normpath(path.replace(HOME_DIRECTORY_MARKER, os.path.join(home_directory, self.username))) for path in self.exclude_files]
+        self.log.info(f"Found {len(self.exclude_files)} files to exclude")
+
         self.source_files = config.get("source_files", [])
         self.source_files = [os.path.normpath(path.replace(HOME_DIRECTORY_MARKER, os.path.join(home_directory, self.username))) for path in self.source_files]
         self.log.info(f"Found {len(self.source_files)} files to backup")
@@ -162,7 +170,7 @@ class Backup:
         self.notification = config.get("notification", False)
          
 
-    def _backup_object(self, source_dir:str, destination_dir:str, filename = None) -> bool:
+    def _backup_object(self, source_dir:str, destination_dir:str, filename:str = None, exclude_directories:list = None, exclude_files:list = None) -> bool:
         """
         Perform a backup of a source directory (or file) to a destination directory (or file).
 
@@ -198,6 +206,15 @@ class Backup:
         robocopy_command.append("/W:10")    # Specifies the wait time between retries, in seconds. Reduced from the default 30 to 10.
         robocopy_command.append("/R:2")     # Specifies the number of retries on failed copies. By default it would retry 1mil times, which makes sense if the backup is on the network but doesn't for local drives.
         robocopy_command.append("/XJ")      # Excludes junction points, which are normally included by default.
+
+        if not filename:
+            if exclude_directories:
+                robocopy_command.append("/XD")  # Excludes files that match the specified names or paths.
+                robocopy_command.extend(exclude_directories)
+
+            if exclude_files:
+                robocopy_command.append("/XF")  # Excludes directories that match the specified names and paths.
+                robocopy_command.extend(exclude_files)
 
         if self.dryrun:
             robocopy_command.append("/L")   # Specifies that files are to be listed only (and not copied, deleted, or time stamped).
@@ -279,7 +296,9 @@ class Backup:
                 continue
 
             destination_dir = os.path.join(self.backup_directory_full, source_path)
-            if self._backup_object(source_dir, destination_dir):
+            if self._backup_object(source_dir, destination_dir, 
+                                   exclude_directories=[path for path in self.exclude_directories if path.startswith(source_dir)],
+                                   exclude_files=[path for path in self.exclude_files if path.startswith(source_dir)]):
                 successfull_directories += 1
             
         total_files = len(self.source_files)
